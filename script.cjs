@@ -22,13 +22,8 @@ const getFilePath = () => {
   return filePath
 }
 
-const processFile = async (inputFilePath) => {
-  const rl = readline.createInterface({ input: fs.createReadStream(inputFilePath, { encoding: "utf-8" }) })
-
-  let headers = []
-  let isFirstLine = true
-
-  const maxAmountRecord = {
+const createTrackers = () => ({
+  maxAmountWithDiscount: {
     value: -Infinity,
     record: null,
     process: function(row) {
@@ -39,11 +34,10 @@ const processFile = async (inputFilePath) => {
 
     },
     get message() {
-      return `Max amount: ${this.value}\nRecord: ${JSON.stringify(this.record)}`
+      return `Max amount with discount: ${this.value}\nRecord: ${JSON.stringify(this.record)}`
     }
-  }
-
-  const maxQuantityRecord = {
+  },
+  maxQuantity: {
     value: -Infinity,
     record: null,
     process: function(row) {
@@ -53,11 +47,32 @@ const processFile = async (inputFilePath) => {
       this.record = row
     },
     get message() {
-      return `Max quantity: ${this.value}\nRecord: ${JSON.stringify(this.record)}`
+      return `Max quantity between all the items: ${this.value}\nRecord: ${JSON.stringify(this.record)}`
+    }
+  },
+  MaxDiffWithAndWithoutDiscont: {
+    value: -Infinity,
+    record: null,
+    process: function(row) {
+      const diff = row["quantity"] * row["unit price"] * row["percentage discount"] / 100
+      if (diff < this.value) return
+      this.value = diff
+      this.record = row
+    },
+    get message() {
+      return `Max difference between total amount with and without discount: ${this.value}\nRecord: ${JSON.stringify(this.record)}`
     }
   }
+})
 
-  const results = [maxAmountRecord, maxQuantityRecord]
+const processFile = async (inputFilePath) => {
+  const rl = readline.createInterface({ input: fs.createReadStream(inputFilePath, { encoding: "utf-8" }) })
+
+  let headers = []
+  let isFirstLine = true
+
+
+  const trackers = createTrackers()
 
   for await (const line of rl) {
     const values = line.trim().split(",")
@@ -68,12 +83,16 @@ const processFile = async (inputFilePath) => {
       continue
     }
 
-    const row = Object.fromEntries(headers.map((h, i) => [h, values[i]]))
+    const row = Object.fromEntries(headers.map((h, i) => {
+      const raw = values[i]
+      const number = Number(raw)
+      return [h, isNaN(number) ? raw : number]
+    }))
 
-    results.forEach(r => r.process(row))
+    Object.values(trackers).forEach(tracker => tracker.process(row))
   }
 
-  results.forEach(r => console.log(r.message))
+  Object.values(trackers).forEach(tracker => console.log(tracker.message + "\n"))
 }
 
 const main = async () => {
