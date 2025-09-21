@@ -5,24 +5,50 @@ const fs = require("node:fs")
 const path = require("node:path")
 const readline = require("node:readline")
 
-const getFilePath = () => {
+const getOptions = () => {
   if (argv.length <= 2) {
     throw new Error("CSV file not provided")
-  } else if (argv.length > 3) {
-    throw new Error("Too many arguments")
   }
 
-  const providedFilePath = argv[2]
-  const filePath = path.isAbsolute(providedFilePath) ? providedFilePath : path.join(__dirname, providedFilePath)
+  const providedInputFilePath = argv[2].trim()
+  const inputFilePath = path.isAbsolute(providedInputFilePath) ? providedInputFilePath : path.join(__dirname, providedInputFilePath)
 
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(inputFilePath)) {
     throw new Error("The provided file does not exists, check the inserted path")
   }
 
-  return filePath
+  const extension = inputFilePath.split(".").pop().toLowerCase()
+
+  if (extension != "csv") {
+    throw new Error("The provided file is not a CSV")
+  }
+
+  const providedOutputPath = argv.length >= 4 ? argv[3].trim() : undefined
+  const outputPath = providedOutputPath == undefined ? undefined : path.isAbsolute(providedOutputPath) ? providedOutputPath : path.join(__dirname, providedOutputPath)
+
+  if (outputPath != undefined && !fs.existsSync(outputPath)) {
+    throw new Error("The provided output path does not exists, check the inserted path")
+  }
+
+  const options = { inputFilePath, outputPath }
+
+  return options
 }
 
 const createTrackers = () => ({
+  maxAmountWithoutDiscount: {
+    value: -Infinity,
+    record: null,
+    process: function(row) {
+      const totalAmount = row["unit price"] * row["quantity"]
+      if (totalAmount < this.value) return
+      this.value = totalAmount
+      this.record = row
+    },
+    get message() {
+      return `Max amount without discount: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
+    }
+  },
   maxAmountWithDiscount: {
     value: -Infinity,
     record: null,
@@ -34,7 +60,7 @@ const createTrackers = () => ({
 
     },
     get message() {
-      return `Max amount with discount: ${this.value}\nRecord: ${JSON.stringify(this.record)}`
+      return `Max amount with discount: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
     }
   },
   maxQuantity: {
@@ -47,10 +73,10 @@ const createTrackers = () => ({
       this.record = row
     },
     get message() {
-      return `Max quantity between all the items: ${this.value}\nRecord: ${JSON.stringify(this.record)}`
+      return `Max quantity between all the records: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
     }
   },
-  MaxDiffWithAndWithoutDiscont: {
+  MaxDiffWithDiscount: {
     value: -Infinity,
     record: null,
     process: function(row) {
@@ -60,7 +86,7 @@ const createTrackers = () => ({
       this.record = row
     },
     get message() {
-      return `Max difference between total amount with and without discount: ${this.value}\nRecord: ${JSON.stringify(this.record)}`
+      return `Max difference between total amount with and without discount: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
     }
   }
 })
@@ -70,7 +96,6 @@ const processFile = async (inputFilePath) => {
 
   let headers = []
   let isFirstLine = true
-
 
   const trackers = createTrackers()
 
@@ -92,13 +117,29 @@ const processFile = async (inputFilePath) => {
     Object.values(trackers).forEach(tracker => tracker.process(row))
   }
 
-  Object.values(trackers).forEach(tracker => console.log(tracker.message + "\n"))
+  return trackers
+}
+
+const saveOutput = (outputPath, data) => {
+  const cleanOutput = Object.fromEntries(
+    Object.entries(data).map(([id, t]) => [
+      id, { value: t.value, record: t.record }
+    ])
+  )
+  const output = JSON.stringify(cleanOutput, null, 2)
+  fs.writeFileSync(path.join(outputPath, "out.json"), output, "utf-8")
 }
 
 const main = async () => {
   try {
-    const filePath = getFilePath()
-    await processFile(filePath)
+    const { inputFilePath, outputPath } = getOptions()
+    const trackers = await processFile(inputFilePath)
+
+    if (outputPath) {
+      saveOutput(outputPath, trackers)
+    } else {
+      Object.values(trackers).forEach(tracker => console.log(tracker.message + "\n"))
+    }
   } catch (err) {
     console.error(err.message)
   }
