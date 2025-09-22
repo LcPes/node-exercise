@@ -1,7 +1,6 @@
 # node-exercise
 
 This tool processes a CSV file and extracts useful insights:
-- **Max amount without discount**
 - **Max amount with discount**
 - **Max quantity across all records**
 - **Max difference between total amount with and without discount**
@@ -57,14 +56,6 @@ unit price,quantity,percentage discount
 If no output directory is provided, the program prints human-readable results:
 
 ```
-Max amount without discount: 105
-Record: {
-  "unit price": 15,
-  "quantity": 7,
-  "percentage discount": 5,
-  ...
-}
-
 Max amount with discount: 60
 Record: {
   "unit price": 20,
@@ -82,15 +73,6 @@ If an output directory is provided, an `<input-file-name>.json` file is created 
 
 ```json
 {
-  "maxAmountWithoutDiscount": {
-    "value": 105,
-    "record": {
-      "unit price": 15,
-      "quantity": 7,
-      "percentage discount": 5,
-      ...
-    }
-  },
   "maxAmountWithDiscount": {
     "value": 60,
     "record": {

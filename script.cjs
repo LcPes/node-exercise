@@ -60,29 +60,9 @@ const hasProperties = (obj, keys) => {
  * Each tracker computes a specific maximum value based on the data.
  *
  * @returns {Object<string, {value: number, record: Object|null, process: Function, toString: Function, toJSON: Function}>}
- * Trackers for maxAmountWithoutDiscount, maxAmountWithDiscount, maxQuantity, maxDiffWithDiscount.
+ * Trackers for maxAmountWithDiscount, maxQuantity, maxDiffWithDiscount.
  */
 const createTrackers = () => ({
-  maxAmountWithoutDiscount: {
-    value: -Infinity,
-    record: null,
-    process(row) {
-      if (!hasProperties(row, ["quantity", "unit price"])) return
-      const totalAmount = row["unit price"] * row["quantity"]
-      if (totalAmount < this.value) return
-      this.value = totalAmount
-      this.record = row
-    },
-    toString() {
-      return `Max amount without discount: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
-    },
-    toJSON() {
-      return {
-        value: this.value === -Infinity ? null : this.value,
-        record: this.record
-      }
-    }
-  },
   maxAmountWithDiscount: {
     value: -Infinity,
     record: null,
