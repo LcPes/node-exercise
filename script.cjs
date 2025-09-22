@@ -5,6 +5,14 @@ const fs = require("node:fs")
 const path = require("node:path")
 const readline = require("node:readline")
 
+/**
+ * Parse CLI arguments and validate input/output paths.
+ *
+ * @throws {Error} If no CSV file is provided, file does not exist,
+ * or input is not a CSV.
+ * @returns {{ inputFilePath: string, outputPath?: string }} 
+ * Object containing the input CSV file path and optional output directory.
+ */
 const getOptions = () => {
   if (argv.length <= 2) {
     throw new Error("CSV file not provided")
@@ -35,62 +43,99 @@ const getOptions = () => {
   return options
 }
 
+/**
+ * Create and return a set of trackers used to analyze CSV rows.
+ * Each tracker computes a specific maximum value based on the data.
+ *
+ * @returns {Object<string, {value: number, record: Object|null, process: Function, toString: Function, toJSON: Function}>}
+ * Trackers for maxAmountWithoutDiscount, maxAmountWithDiscount, maxQuantity, maxDiffWithDiscount.
+ */
 const createTrackers = () => ({
   maxAmountWithoutDiscount: {
     value: -Infinity,
     record: null,
-    process: function(row) {
+    process(row) {
       const totalAmount = row["unit price"] * row["quantity"]
       if (totalAmount < this.value) return
       this.value = totalAmount
       this.record = row
     },
-    get message() {
+    toString() {
       return `Max amount without discount: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
+    },
+    toJSON() {
+      return {
+        value: this.value === -Infinity ? null : this.value,
+        record: this.record
+      }
     }
   },
   maxAmountWithDiscount: {
     value: -Infinity,
     record: null,
-    process: function(row) {
+    process(row) {
       const totalAmount = row["unit price"] * row["quantity"] * (1 - row["percentage discount"] / 100)
       if (totalAmount < this.value) return
       this.value = totalAmount
       this.record = row
-
     },
-    get message() {
+    toString() {
       return `Max amount with discount: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
+    },
+    toJSON() {
+      return {
+        value: this.value === -Infinity ? null : this.value,
+        record: this.record
+      }
     }
   },
   maxQuantity: {
     value: -Infinity,
     record: null,
-    process: function(row) {
+    process(row) {
       const quantity = row["quantity"]
       if (quantity < this.value) return
       this.value = quantity
       this.record = row
     },
-    get message() {
+    toString() {
       return `Max quantity between all the records: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
+    },
+    toJSON() {
+      return {
+        value: this.value === -Infinity ? null : this.value,
+        record: this.record
+      }
     }
   },
-  MaxDiffWithDiscount: {
+  maxDiffWithDiscount: {
     value: -Infinity,
     record: null,
-    process: function(row) {
+    process(row) {
       const diff = row["quantity"] * row["unit price"] * row["percentage discount"] / 100
       if (diff < this.value) return
       this.value = diff
       this.record = row
     },
-    get message() {
+    toString() {
       return `Max difference between total amount with and without discount: ${this.value}\nRecord: ${JSON.stringify(this.record, null, 2)}`
+    },
+    toJSON() {
+      return {
+        value: this.value === -Infinity ? null : this.value,
+        record: this.record
+      }
     }
   }
 })
 
+/**
+ * Process a CSV file line by line and update the trackers with each row.
+ *
+ * @async
+ * @param {string} inputFilePath - Path to the CSV file.
+ * @returns {Promise<Object>} Trackers updated with the data from the CSV file.
+ */
 const processFile = async (inputFilePath) => {
   const rl = readline.createInterface({ input: fs.createReadStream(inputFilePath, { encoding: "utf-8" }) })
 
@@ -120,25 +165,32 @@ const processFile = async (inputFilePath) => {
   return trackers
 }
 
+/**
+ * Save the analysis results to a JSON file.
+ * @param {string} outputPath - Path where the output JSON file will be written.
+ * @param {Object} data - Trackers containing the analysis results.
+ */
 const saveOutput = (outputPath, data) => {
-  const cleanOutput = Object.fromEntries(
-    Object.entries(data).map(([id, t]) => [
-      id, { value: t.value, record: t.record }
-    ])
-  )
-  const output = JSON.stringify(cleanOutput, null, 2)
-  fs.writeFileSync(path.join(outputPath, "out.json"), output, "utf-8")
+  const output = JSON.stringify(data, null, 2)
+  fs.writeFileSync(outputPath, output, "utf-8")
 }
 
+/**
+ * Main entry point of the program.
+ * - Parses CLI options
+ * - Processes the input CSV file
+ * - Either prints results to the console or saves them as JSON
+ */
 const main = async () => {
   try {
     const { inputFilePath, outputPath } = getOptions()
     const trackers = await processFile(inputFilePath)
 
     if (outputPath) {
-      saveOutput(outputPath, trackers)
+      const outputName = inputFilePath.split("/").pop().split(".").shift() + ".json"
+      saveOutput(path.join(outputPath, outputName), trackers)
     } else {
-      Object.values(trackers).forEach(tracker => console.log(tracker.message + "\n"))
+      Object.values(trackers).forEach(tracker => console.log(String(tracker) + "\n"))
     }
   } catch (err) {
     console.error(err.message)
