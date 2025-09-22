@@ -44,6 +44,18 @@ const getOptions = () => {
 }
 
 /**
+ * Check if an object has all of the specified properties.
+ *
+ * @param {Object} obj - The object to check.
+ * @param {string[]} keys - Array of property names to verify.
+ * @returns {boolean} True if all specified keys exist in the object, false otherwise.
+ */
+const hasProperties = (obj, keys) => {
+  if (typeof obj !== "object" || obj === null) return false
+  return keys.every(key => key in obj)
+}
+
+/**
  * Create and return a set of trackers used to analyze CSV rows.
  * Each tracker computes a specific maximum value based on the data.
  *
@@ -55,9 +67,7 @@ const createTrackers = () => ({
     value: -Infinity,
     record: null,
     process(row) {
-      if (typeof row !== "object") return
-      const requiredKeys = ["quantity", "unit price"]
-      if (!requiredKeys.every(key => key in row)) return
+      if (!hasProperties(row, ["quantity", "unit price"])) return
       const totalAmount = row["unit price"] * row["quantity"]
       if (totalAmount < this.value) return
       this.value = totalAmount
@@ -77,9 +87,7 @@ const createTrackers = () => ({
     value: -Infinity,
     record: null,
     process(row) {
-      if (typeof row !== "object") return
-      const requiredKeys = ["quantity", "unit price", "percentage discount"]
-      if (!requiredKeys.every(key => key in row)) return
+      if (!hasProperties(row, ["quantity", "unit price", "percentage discount"])) return
       const totalAmount = row["unit price"] * row["quantity"] * (1 - row["percentage discount"] / 100)
       if (totalAmount < this.value) return
       this.value = totalAmount
@@ -99,9 +107,7 @@ const createTrackers = () => ({
     value: -Infinity,
     record: null,
     process(row) {
-      if (typeof row !== "object") return
-      const requiredKey = "quantity"
-      if (!(requiredKey in row)) return
+      if (!hasProperties(row, ["quantity"])) return
       const quantity = row["quantity"]
       if (quantity < this.value) return
       this.value = quantity
@@ -121,9 +127,7 @@ const createTrackers = () => ({
     value: -Infinity,
     record: null,
     process(row) {
-      if (typeof row !== "object") return
-      const requiredKeys = ["quantity", "unit price", "percentage discount"]
-      if (!requiredKeys.every(key => key in row)) return
+      if (!hasProperties(row, ["quantity", "unit price", "percentage discount"])) return
       const diff = row["quantity"] * row["unit price"] * row["percentage discount"] / 100
       if (diff < this.value) return
       this.value = diff
