@@ -55,6 +55,9 @@ const createTrackers = () => ({
     value: -Infinity,
     record: null,
     process(row) {
+      if (typeof row !== "object") return
+      const requiredKeys = ["quantity", "unit price"]
+      if (!requiredKeys.every(key => key in row)) return
       const totalAmount = row["unit price"] * row["quantity"]
       if (totalAmount < this.value) return
       this.value = totalAmount
@@ -74,6 +77,9 @@ const createTrackers = () => ({
     value: -Infinity,
     record: null,
     process(row) {
+      if (typeof row !== "object") return
+      const requiredKeys = ["quantity", "unit price", "percentage discount"]
+      if (!requiredKeys.every(key => key in row)) return
       const totalAmount = row["unit price"] * row["quantity"] * (1 - row["percentage discount"] / 100)
       if (totalAmount < this.value) return
       this.value = totalAmount
@@ -93,6 +99,9 @@ const createTrackers = () => ({
     value: -Infinity,
     record: null,
     process(row) {
+      if (typeof row !== "object") return
+      const requiredKey = "quantity"
+      if (!(requiredKey in row)) return
       const quantity = row["quantity"]
       if (quantity < this.value) return
       this.value = quantity
@@ -112,6 +121,9 @@ const createTrackers = () => ({
     value: -Infinity,
     record: null,
     process(row) {
+      if (typeof row !== "object") return
+      const requiredKeys = ["quantity", "unit price", "percentage discount"]
+      if (!requiredKeys.every(key => key in row)) return
       const diff = row["quantity"] * row["unit price"] * row["percentage discount"] / 100
       if (diff < this.value) return
       this.value = diff
